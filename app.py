@@ -20,7 +20,7 @@ from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.decomposition import PCA
 
-st.set_page_config(page_title="OrganScope | Donation Analytics", page_icon="🫀", layout="wide")
+st.set_page_config(page_title="OrganScope | Donation Analytics", layout="wide")
 
 APP_DIR = Path(__file__).resolve().parent
 # Try the preferred filename first, then common filenames used in this project.
@@ -80,18 +80,16 @@ def sample(data, limit=PLOT_SAMPLE):
 def safe_mean(col):
     return pd.to_numeric(df[col], errors="coerce").mean() if col in df else np.nan
 
-with st.sidebar:
-    st.markdown("## 🫀 OrganScope")
-    st.caption("Global Organ Donation & Transplantation Analytics")
-    st.markdown("---")
-    page = st.radio("NAVIGATION", [
-        "Overview", "Data Explorer", "Country & Organ Analysis",
-        "Trends & Survival", "Statistical Tests", "Regression Models",
-        "Clustering", "About Project"
-    ])
-    st.markdown("---")
-    st.success(f"{len(df):,} records · {len(df.columns)} fields")
-    st.caption(f"Dataset: {DATA_PATH.name}")
+PAGES = [
+    "Overview", "Data Explorer", "Country & Organ Analysis",
+    "Trends & Survival", "Statistical Tests", "Regression Models",
+    "Clustering", "About Project"
+]
+
+st.markdown('<div class="nav-strip"></div>', unsafe_allow_html=True)
+_, nav_column = st.columns([4.8, 1.4], vertical_alignment="center")
+with nav_column:
+    page = st.selectbox("Navigate", PAGES, label_visibility="collapsed", key="top_navigation")
 
 if page == "Overview":
     st.markdown("""<div class="hero">
@@ -227,7 +225,7 @@ elif page == "Statistical Tests":
         st.subheader("Donor-rate differences between continents")
         groups=[g["Donor_Rate_PMP"].dropna().values for _,g in df.groupby("Continent") if g["Donor_Rate_PMP"].notna().sum()>1]
         if len(groups)>=2:
-            test=st.radio("Test",["Kruskal–Wallis (robust non-parametric)","One-way ANOVA"],horizontal=True)
+            test=st.selectbox("Test",["Kruskal–Wallis (robust non-parametric)","One-way ANOVA"],key="stat_test")
             stat,p=(kruskal(*groups) if test.startswith("Kruskal") else f_oneway(*groups))
             st.write("**H₀:** donor-rate distributions/means do not differ between continents.")
             st.write("**H₁:** at least one continent differs.")
@@ -313,7 +311,7 @@ elif page == "Clustering":
     selected=st.multiselect("Features",features,default=features)
     k=st.slider("Number of clusters",2,8,3)
     max_rows=st.slider("Maximum rows (performance)",200,3000,1500,step=100)
-    algo=st.radio("Algorithm",["K-Means","Agglomerative Clustering"],horizontal=True)
+    algo=st.selectbox("Algorithm",["K-Means","Agglomerative Clustering"],key="cluster_algorithm")
     if st.button("Run clustering",type="primary"):
         if len(selected)<2: st.error("Select at least two numeric features.")
         else:
@@ -352,3 +350,153 @@ else:
     - `Avg_Wait_Years_US` is explicitly US-labelled in the dataset; do not interpret it as every country's waiting time.
     - Model metrics depend on the selected target, features, sample size, and train/test split.
     """)
+
+
+# Enhanced top navigation and visual polish
+st.markdown("""
+<style>
+:root {
+    --ink: #eaf3ff;
+    --muted: #9fb6cf;
+    --panel: #10223a;
+    --panel-2: #0d1a2d;
+    --line: #244768;
+    --accent: #5ee7ee;
+}
+
+.stApp {
+    background: radial-gradient(circle at 10% 0%, #173758 0, #081225 38%, #060d1a 100%);
+    color: var(--ink);
+}
+
+[data-testid="stHeader"] {
+    display: none;
+}
+
+#MainMenu, footer {
+    visibility: hidden;
+}
+
+.block-container {
+    max-width: 1500px;
+    padding-top: 0.35rem;
+    padding-bottom: 3rem;
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0c1b30 0%, #091324 100%);
+    border-right: 1px solid var(--line);
+}
+
+[data-testid="stSidebar"] h2 {
+    color: var(--accent);
+    letter-spacing: .04em;
+}
+
+.nav-strip {
+    height: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #244768;
+}
+
+div[data-testid="stSelectbox"] {
+    margin: 0 0 18px 0;
+}
+
+div[data-testid="stSelectbox"] > div > div {
+    background: #10233b;
+    border: 1px solid #3b7395;
+    border-radius: 11px;
+    color: #fff;
+    min-height: 46px;
+    box-shadow: 0 6px 18px #0003;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+div[data-testid="stSelectbox"] > div > div:hover {
+    border-color: var(--accent);
+    box-shadow: 0 8px 22px #1d9db755;
+}
+
+div[data-testid="stSelectbox"] label {
+    display: none;
+}
+
+[data-testid="stMetric"] {
+    background: linear-gradient(145deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px 18px;
+    box-shadow: 0 10px 26px #0003;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+[data-testid="stMetricValue"] {
+    color: #fff;
+}
+
+.stButton > button,
+.stDownloadButton > button {
+    border: 1px solid #3b7395;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1b5473, #214b87);
+    color: #fff;
+    font-weight: 700;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 7px 18px #1d9db755;
+    border-color: var(--accent);
+}
+
+[data-testid="stExpander"],
+[data-testid="stDataFrame"] {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #0d1b2e88;
+}
+
+[data-baseweb="input"],
+[data-baseweb="select"] > div,
+[data-testid="stTextInput"] input {
+    background: #10233b;
+    border-color: #2a5274;
+    border-radius: 9px;
+    color: #fff;
+}
+
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    border-bottom: 1px solid var(--line);
+}
+
+.stTabs [data-baseweb="tab"] {
+    background: #10223a;
+    border-radius: 9px 9px 0 0;
+    padding: 8px 14px;
+    color: var(--muted);
+}
+
+.stTabs [aria-selected="true"] {
+    background: #1b4d6b;
+    color: #fff;
+}
+
+[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+
+h1, h2, h3 {
+    letter-spacing: -.02em;
+}
+</style>
+""", unsafe_allow_html=True)
+
