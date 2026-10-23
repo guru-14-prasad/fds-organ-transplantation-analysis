@@ -131,3 +131,8 @@ Dashboard and model outputs can vary with selected filters, available non-missin
 ## Maintenance
 
 Keep the app dataset, notebook input paths, and Tableau source aligned when refreshing project data.
+
+
+## Suggested reading order
+
+Start with Overview, inspect data quality in Data Explorer, then use Statistical Tests, Regression Models, or Clustering for focused analysis.
