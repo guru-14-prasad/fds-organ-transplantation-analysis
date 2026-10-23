@@ -1,105 +1,118 @@
-# Organ Transplantation and Donor Activity Analysis
+# OrganScope: Organ Transplantation & Donor Activity Analysis
 
-## Foundation of Data Science (FDS)
+Foundation of Data Science (FDS) project combining an interactive Streamlit dashboard, Tableau workbook, Jupyter analysis, cleaned datasets, statistical tests, regression model comparison, and clustering.
 
-A data-driven analysis of organ transplantation activity, deceased donor rates, regional differences, and trends over time using Python, statistical methods, and Tableau.
+## Project overview
 
-## Project Overview
+OrganScope explores organ donation and transplantation activity across countries, organs, continents, and years. It covers donor rates, donor and transplant volumes, waiting-list pressure, survival measures, data quality, and relationships between numerical variables. The data is observational, so associations should not be interpreted as causal effects.
 
-Organ transplantation is an important component of healthcare systems worldwide. Analyzing donor activity and transplant rates can help us understand regional differences, organ-specific activity, and changes in transplantation over time.
+## Repository contents
 
-This project applies Foundation of Data Science concepts to cleaned country-year and organ-year datasets. It combines exploratory data analysis, statistical reasoning, sampling concepts, and data visualization to investigate patterns in organ donation and transplantation.
+| Component | File | Purpose |
+|---|---|---|
+| Streamlit dashboard | [app.py](app.py) | Main interactive OrganScope application |
+| Tableau workbook | [Organ_Donation_Dashboard_OR.twbx](Organ_Donation_Dashboard_OR.twbx) | Native Tableau workbook |
+| Tableau data source | [organ_donation_cleaned_tableau.csv](organ_donation_cleaned_tableau.csv) | Flat Tableau data source |
+| Jupyter analysis | [organ_donation_notebook.ipynb](organ_donation_notebook.ipynb) | EDA, 15 questions/visualizations, hypothesis tests, ML analysis, and conclusions |
+| HTML dashboard | [organ_donation_15_visualizations_dashboard.html](organ_donation_15_visualizations_dashboard.html) | Standalone Plotly dashboard |
+| Application dataset | [final organ dataset.csv](final%20organ%20dataset.csv) | CSV loaded by the app when present |
+| Cleaned dataset | [final_organ_clean.csv](final_organ_clean.csv) | Cleaned organ-level data |
+| Source download | [data/GODT_downloads.xlsx](data/GODT_downloads.xlsx) | Source workbook retained in data/ |
+| Tableau notes | [TABLEAU_DASHBOARD_README.txt](TABLEAU_DASHBOARD_README.txt) | Field mapping and dashboard setup |
 
-## Objectives
+## Streamlit dashboard
 
-- Examine the dimensions and coverage of the datasets.
-- Compare donor rates and utilization across regions.
-- Identify organs with the highest total transplant activity and transplantation rates per million.
-- Investigate relationships between donor activity and transplant activity.
-- Analyze changes in transplantation over time.
-- Study regional patterns in high donor activity.
-- Apply probability, confidence intervals, sampling variability, and sampling-distribution concepts.
-- Explore relationships between numerical variables using correlation analysis.
-- Communicate findings through clear visualizations and statistical interpretation.
+Run app.py to open OrganScope | Donation Analytics. The sidebar provides:
 
-## Dataset Description
+- Overview — headline metrics, dataset preview, organ totals, continent donor-rate summaries, missing-value review, and a numeric correlation heatmap.
+- Data Explorer — numeric distributions, category counts, descriptive statistics, missing values, and IQR outlier counts.
+- Country & Organ Analysis — country, organ, and continent filters; donor-rate and transplant summaries; donor-type comparisons; filtered CSV download.
+- Trends & Survival — annual transplant trends grouped overall, by organ, or by continent, plus survival views when fields are available.
+- Statistical Tests — Kruskal–Wallis or one-way ANOVA for donor-rate differences between continents, and Mann–Whitney U for eligibility versus five-year survival when required columns exist.
+- Regression Models — Linear Regression, Ridge, Lasso, Decision Tree, Random Forest, and Gradient Boosting comparisons with R², RMSE, MAE, and residual diagnostics.
+- Clustering — K-Means or Agglomerative Clustering, cluster summaries, silhouette score when calculable, PCA projection, and downloadable assignments.
+- About Project — project purpose and interpretation notes.
 
-The project uses two cleaned datasets:
+The app trims text fields and converts numeric fields on load. Plot and model row caps keep interaction responsive; metrics depend on selected fields, available data, and train/test sampling.
 
-| Dataset | Description |
-|---|---|
-| `country_year_clean.csv` | Country-year observations containing regional information, population, donor activity, utilization, transplant counts, and rates. |
-| `organ_year_clean.csv` | Organ-year observations containing organ-specific transplant counts and transplantation rates. |
+## Setup and run locally
 
-The datasets are used for different parts of the analysis. The country-year dataset supports regional, temporal, and donor-related analysis, while the organ-year dataset supports comparisons across organ categories.
+### Clone
 
-**Dataset coverage:** The supplied cleaned files contain 3,104 country-year rows representing 194 countries across 2010–2025, and 21,728 organ-year rows. Actual coverage can vary by variable because some observations may be missing.
+~~~bash
+git clone https://github.com/guru-14-prasad/fds-organ-transplantation-analysis.git
+cd fds-organ-transplantation-analysis
+~~~
 
-## Research Questions
+### Create an environment and install dependencies
 
-The project investigates the following 15 questions:
+Windows PowerShell:
 
-1. What are the dataset dimensions and coverage?
-2. Do donor rates differ across regions?
-3. Which organ has the greatest transplant activity?
-4. Is donor activity associated with transplant activity?
-5. How does donor utilization vary by region?
-6. Are actual donors associated with total transplants?
-7. Which organs have the highest transplant rate per million?
-8. How has transplantation changed over time?
-9. Is region associated with high donor activity?
-10. How does transplant activity vary across organs?
-11. What is the probability of high-transplant records?
-12. How precise is the mean donor-rate estimate?
-13. How does sample size affect variability?
-14. Does the sampling distribution approach normality?
-15. Which variables best explain transplant activity?
+~~~powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+~~~
 
-## Tools and Technologies
+macOS/Linux:
 
-- **Python** — Data processing, analysis, and statistical calculations.
-- **Pandas and NumPy** — Data manipulation and numerical operations.
-- **Matplotlib** — Data visualization.
-- **Tableau** — Interactive charts and dashboards.
-- **Jupyter Notebook** — Analysis workflow and documentation.
-- **Git and GitHub** — Version control and project collaboration.
-- **Microsoft PowerPoint** — Presentation of methodology, visualizations, and findings.
+~~~bash
+python3 -m venv .venv
+source .venv/bin/activate
+~~~
 
-## Methodology
+~~~bash
+pip install -r requirements.txt
+~~~
 
-The project follows these stages:
+The requirements cover Streamlit, Pandas, NumPy, Plotly, SciPy, and scikit-learn.
 
-1. **Data inspection:** Examine dataset dimensions, columns, data types, missing values, and coverage.
-2. **Data preparation:** Use the supplied cleaned datasets and identify relevant fields for each question.
-3. **Exploratory analysis:** Summarize donor rates, utilization, transplant counts, organ categories, and temporal patterns.
-4. **Visualization:** Build bar charts, box plots, scatterplots, line charts, contingency heatmaps, and correlation heatmaps.
-5. **Statistical analysis:** Apply suitable probability and sampling methods, confidence intervals, and association measures where appropriate.
-6. **Interpretation:** Explain findings while considering uncertainty, missing data, and limitations.
-7. **Presentation:** Communicate the analysis through Tableau visualizations and a final project presentation.
+### Launch the dashboard
 
-## Visualizations
+~~~bash
+streamlit run app.py
+~~~
 
-The planned visualizations include:
+Open the local URL printed by Streamlit, normally http://localhost:8501. Keep the application CSV in the repository root so app.py can find it.
 
-- Dataset coverage and regional record counts
-- Donor-rate distributions by region
-- Total transplants by organ
-- Donor-rate versus transplant-rate scatterplots
-- Regional utilization comparisons
-- Actual deceased donors versus total transplants
-- Organ-specific transplantation rates per million
-- Transplantation trends over time
-- Regional high-donor-activity heatmaps
-- Organ-level transplant-rate distributions
-- Binomial probability mass function
-- Confidence intervals for mean donor rates
-- Sampling-size and variability comparisons
-- Sampling-distribution histograms for different sample sizes
-- Correlation heatmaps for numerical variables
+## Jupyter analysis
 
-## Key Considerations
+Open [organ_donation_notebook.ipynb](organ_donation_notebook.ipynb) in Jupyter Notebook, JupyterLab, or VS Code. Run cells from top to bottom after confirming that referenced data files exist at the paths expected by the notebook.
 
-- Transplant counts and transplantation rates per million measure different aspects of activity.
-- Regional comparisons should account for differences in country coverage and missing values.
-- Correlation indicates association, not causation.
-- Sampling simulations illustrate
+The notebook documents the exploratory workflow, 15 analysis questions and plots, hypothesis tests, an ML model, and conclusions. It complements the interactive app.
+
+## Tableau workbook
+
+1. Open [Organ_Donation_Dashboard_OR.twbx](Organ_Donation_Dashboard_OR.twbx) in Tableau Desktop or Tableau Public.
+2. If Tableau requests a source, use [organ_donation_cleaned_tableau.csv](organ_donation_cleaned_tableau.csv).
+3. Use the filters and worksheet views in the workbook.
+4. Consult [TABLEAU_DASHBOARD_README.txt](TABLEAU_DASHBOARD_README.txt) for worksheet field mapping.
+
+The Tableau documentation covers donor volume/rates, country rankings, donor mix, transplants by organ, waiting lists, donor/transplant relationships, survival, annual trends, waiting-list-to-transplant ratio, and eligibility versus living-donor share.
+
+## Dataset notes
+
+The project includes country-year and organ-year analysis. Existing project documentation describes cleaned files with country, regional, population, donor, utilization, transplant, organ, and rate fields. It records 3,104 country-year rows across 194 countries for 2010–2025 and 21,728 organ-year rows; missingness can vary by field.
+
+The dashboard uses fields such as Country, Organ, Continent, Year, Total_Donors, Transplants, Donor_Rate_PMP, Waiting_List, Survival_Rate_1Y_Pct, and Survival_Rate_5Y_Pct when present. Inspect the data-quality views before comparisons.
+
+Important interpretation notes:
+
+- Counts and rates per million answer different questions.
+- Regional comparisons can be affected by country coverage and missing values.
+- Avg_Wait_Years_US is explicitly US-labelled and should not be read as every country’s waiting time.
+- Statistical tests use available non-missing observations.
+- Regression and clustering outputs are exploratory, not fixed project results.
+
+## Visual coverage and screenshots
+
+The project covers dataset dimensions, regional donor-rate comparisons, organ activity, donor/transplant relationships, utilization, rates per million, temporal trends, high-donor-activity patterns, probability and sampling concepts, confidence intervals, sampling variability, correlation, regression, and clustering.
+
+> Screenshot placeholder — add an OrganScope Overview capture when available.
+
+> Screenshot placeholder — add a Tableau workbook/dashboard capture when available.
+
+## Limitations and license
+
+This observational analysis is not clinical or policy guidance. Verify definitions, provenance, coverage, and missing-data assumptions before reuse. Correlation and model performance do not establish causation, and outputs can change with filters, preprocessing, and train/test samples.
+
+No license file is currently included. Add a license before distributing the project for reuse.
