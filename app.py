@@ -199,74 +199,94 @@ if page == "EDA Visuals":
 
 elif page == "Analysis Questions":
     st.title("Analysis Questions")
-    st.caption("Select one of the project questions to display its visual analysis.")
+    st.caption("These questions match the notebook exactly.")
     questions = {
-        "Q1. Donor volume by continent": "donor_volume",
-        "Q2. Top countries by donor rate": "country_rate",
-        "Q3. Donor rate by continent": "continent_rate",
-        "Q4. Living versus deceased donors": "donor_mix",
-        "Q5. Transplants by organ": "organ_transplants",
-        "Q6. Waiting list by organ": "organ_waiting",
-        "Q7. Donors versus transplants": "donor_transplants",
-        "Q8. Donor rate versus waiting list": "rate_waiting",
-        "Q9. One-year survival by organ": "survival_1y",
-        "Q10. Five-year survival by organ": "survival_5y",
-        "Q11. One-year versus five-year survival": "survival_compare",
-        "Q12. Living-donor share by organ": "living_share",
-        "Q13. Annual transplant trend": "annual_trend",
-        "Q14. Highest waiting-list-to-transplant ratio": "backlog",
-        "Q15. Eligibility versus living-donor share": "eligibility",
+        "Q1. What is the structure and coverage of the dataset, and how complete is it?": "structure",
+        "Q2. How many records are inconsistent or implausible, and how should they be handled?": "quality",
+        "Q3. Which continents have the highest and lowest donor activity per million population?": "continent_rates",
+        "Q4. Which organs contribute most to total transplants and donors?": "organ_contribution",
+        "Q5. Which countries lead in donor performance, and is the ranking consistent across organs?": "country_ranking",
+        "Q6. How have donor and transplant activity changed from 2010 to 2025?": "trend",
+        "Q7. How much do health systems rely on living versus deceased donors, and does this depend on the organ?": "donor_mix",
+        "Q8. Where is the gap between organ demand and supply largest?": "demand_supply",
+        "Q9. What factors are associated with longer average waiting times?": "waiting_factors",
+        "Q10. How do one-year and five-year survival differ by organ, and which organ shows the steepest long-term decline?": "survival",
+        "Q11. Does higher transplant volume go with better survival outcomes?": "volume_survival",
+        "Q12. Is the difference in mean donor rate across continents statistically significant?": "continent_test",
+        "Q13. Do organs that allow living donation have significantly higher survival than organs that rarely do?": "eligibility_survival",
+        "Q14. Which variables best explain total transplant activity?": "regression_question",
+        "Q15. Can country-organ records be grouped into distinct performance profiles?": "clustering_question",
     }
     selected_question = st.selectbox("Project question", list(questions))
     question_key = questions[selected_question]
 
-    if question_key == "donor_volume" and {"Continent", "Total_Donors"}.issubset(df.columns):
-        data = df.groupby("Continent")["Total_Donors"].sum().reset_index()
-        show_chart(px.bar(data, x="Continent", y="Total_Donors", text_auto=".2s", title=selected_question), "q1")
-    elif question_key == "country_rate" and {"Country", "Donor_Rate_PMP"}.issubset(df.columns):
-        data = df.groupby("Country")["Donor_Rate_PMP"].median().nlargest(15).reset_index().sort_values("Donor_Rate_PMP")
-        show_chart(px.bar(data, x="Donor_Rate_PMP", y="Country", orientation="h", text_auto=".2f", title=selected_question), "q2")
-    elif question_key == "continent_rate" and {"Continent", "Donor_Rate_PMP"}.issubset(df.columns):
-        data = df.groupby("Continent")["Donor_Rate_PMP"].mean().reset_index()
-        show_chart(px.bar(data, x="Continent", y="Donor_Rate_PMP", text_auto=".2f", title=selected_question), "q3")
+    if question_key == "structure":
+        a, b, c, d = st.columns(4)
+        a.metric("Rows", f"{len(df):,}")
+        b.metric("Columns", f"{len(df.columns):,}")
+        c.metric("Countries", f"{df['Country'].nunique():,}" if "Country" in df else "N/A")
+        d.metric("Missing cells", f"{int(df.isna().sum().sum()):,}")
+        coverage = pd.DataFrame({"Dimension": ["Country", "Organ", "Continent", "Year"], "Distinct values": [df[c].nunique() if c in df else 0 for c in ["Country", "Organ", "Continent", "Year"]]})
+        st.dataframe(coverage, use_container_width=True, hide_index=True)
+        missing = df.isna().sum().sort_values(ascending=False).reset_index(name="Missing values").rename(columns={"index": "Field"})
+        show_chart(px.bar(missing[missing["Missing values"] > 0], x="Field", y="Missing values", title=selected_question), "q1")
+    elif question_key == "quality":
+        checks = []
+        checks.append(("Exact duplicate rows", int(df.duplicated().sum())))
+        if {"Country", "Year", "Organ"}.issubset(df.columns): checks.append(("Duplicate Country-Year-Organ rows", int(df.duplicated(["Country", "Year", "Organ"], keep=False).sum())))
+        if "Year" in df: checks.append(("Years outside 2010–2025", int((~df["Year"].between(2010, 2025)).sum())))
+        if "Donor_Rate_PMP" in df:
+            q1, q3 = df["Donor_Rate_PMP"].quantile([.25, .75]); iqr = q3 - q1
+            checks.append(("Donor-rate IQR outliers", int(((df["Donor_Rate_PMP"] < q1 - 1.5 * iqr) | (df["Donor_Rate_PMP"] > q3 + 1.5 * iqr)).sum())))
+        st.dataframe(pd.DataFrame(checks, columns=["Audit", "Count"]), use_container_width=True, hide_index=True)
+        if "Donor_Rate_PMP" in df: show_chart(px.box(df, y="Donor_Rate_PMP", points="outliers", title=selected_question), "q2")
+    elif question_key == "continent_rates" and {"Continent", "Donor_Rate_PMP", "Deceased_Rate_PMP"}.issubset(df.columns):
+        data = df.groupby("Continent")[["Donor_Rate_PMP", "Deceased_Rate_PMP"]].mean().reset_index().melt("Continent", var_name="Rate type", value_name="Rate per million")
+        show_chart(px.box(data, x="Continent", y="Rate per million", color="Rate type", points="outliers", title=selected_question), "q3")
+    elif question_key == "organ_contribution" and {"Organ", "Transplants", "Total_Donors"}.issubset(df.columns):
+        data = df.groupby("Organ")[["Transplants", "Total_Donors"]].sum().reset_index().melt("Organ", var_name="Measure", value_name="Total")
+        show_chart(px.bar(data, x="Organ", y="Total", color="Measure", barmode="group", text_auto=".2s", title=selected_question), "q4")
+    elif question_key == "country_ranking" and {"Country", "Donor_Rate_PMP"}.issubset(df.columns):
+        data = df.groupby("Country")["Donor_Rate_PMP"].median().nlargest(10).reset_index().sort_values("Donor_Rate_PMP")
+        show_chart(px.bar(data, x="Donor_Rate_PMP", y="Country", orientation="h", text_auto=".2f", title=selected_question), "q5")
+    elif question_key == "trend" and {"Year", "Total_Donors", "Transplants"}.issubset(df.columns):
+        data = df.groupby("Year")[["Total_Donors", "Transplants"]].sum().reset_index().melt("Year", var_name="Measure", value_name="Total")
+        show_chart(px.line(data, x="Year", y="Total", color="Measure", markers=True, title=selected_question), "q6")
     elif question_key == "donor_mix" and {"Organ", "Living_Donors", "Deceased_Donors"}.issubset(df.columns):
         data = df.groupby("Organ")[["Living_Donors", "Deceased_Donors"]].sum().reset_index().melt("Organ", var_name="Donor type", value_name="Donors")
-        show_chart(px.bar(data, x="Organ", y="Donors", color="Donor type", barmode="stack", title=selected_question), "q4")
-    elif question_key == "organ_transplants" and {"Organ", "Transplants"}.issubset(df.columns):
-        data = df.groupby("Organ")["Transplants"].sum().reset_index()
-        show_chart(px.bar(data, x="Organ", y="Transplants", text_auto=".2s", title=selected_question), "q5")
-    elif question_key == "organ_waiting" and {"Organ", "Waiting_List"}.issubset(df.columns):
-        data = df.groupby("Organ")["Waiting_List"].sum().reset_index()
-        show_chart(px.bar(data, x="Organ", y="Waiting_List", text_auto=".2s", title=selected_question), "q6")
-    elif question_key == "donor_transplants" and {"Total_Donors", "Transplants", "Organ"}.issubset(df.columns):
-        data = sampled(df[["Total_Donors", "Transplants", "Organ"]].dropna())
-        show_chart(px.scatter(data, x="Total_Donors", y="Transplants", color="Organ", title=selected_question), "q7")
-    elif question_key == "rate_waiting" and {"Donor_Rate_PMP", "Waiting_List", "Continent"}.issubset(df.columns):
-        data = sampled(df[["Donor_Rate_PMP", "Waiting_List", "Continent"]].dropna())
-        show_chart(px.scatter(data, x="Donor_Rate_PMP", y="Waiting_List", color="Continent", log_y=True, title=selected_question), "q8")
-    elif question_key in {"survival_1y", "survival_5y"} and "Organ" in df.columns:
-        field = "Survival_Rate_1Y_Pct" if question_key == "survival_1y" else "Survival_Rate_5Y_Pct"
-        if field in df:
-            data = df.groupby("Organ")[field].mean().reset_index()
-            show_chart(px.bar(data, x="Organ", y=field, text_auto=".2f", title=selected_question), "q_survival")
-    elif question_key == "survival_compare" and {"Organ", "Survival_Rate_1Y_Pct", "Survival_Rate_5Y_Pct"}.issubset(df.columns):
-        data = df.groupby("Organ")[ ["Survival_Rate_1Y_Pct", "Survival_Rate_5Y_Pct"] ].mean().reset_index().melt("Organ", var_name="Measure", value_name="Percent")
-        show_chart(px.bar(data, x="Organ", y="Percent", color="Measure", barmode="group", text_auto=".2f", title=selected_question), "q11")
-    elif question_key == "living_share" and {"Organ", "Living_Donor_Pct"}.issubset(df.columns):
-        data = df.groupby("Organ")["Living_Donor_Pct"].mean().reset_index()
-        show_chart(px.bar(data, x="Organ", y="Living_Donor_Pct", text_auto=".2f", title=selected_question), "q12")
-    elif question_key == "annual_trend" and {"Year", "Transplants"}.issubset(df.columns):
-        data = df.groupby("Year")["Transplants"].sum().reset_index()
-        show_chart(px.line(data, x="Year", y="Transplants", markers=True, title=selected_question), "q13")
-    elif question_key == "backlog" and {"Country", "Organ", "Waiting_List", "Transplants"}.issubset(df.columns):
-        data = df.copy()
-        data["Backlog Ratio"] = np.where(data["Transplants"] > 0, data["Waiting_List"] / data["Transplants"], np.nan)
-        data = data.dropna(subset=["Backlog Ratio"]).nlargest(15, "Backlog Ratio")
-        show_chart(px.bar(data.sort_values("Backlog Ratio"), x="Backlog Ratio", y="Country", color="Organ", orientation="h", text_auto=".1f", title=selected_question), "q14")
-        st.dataframe(data[["Country", "Organ", "Waiting_List", "Transplants", "Backlog Ratio"]], use_container_width=True, hide_index=True)
-    elif question_key == "eligibility" and {"Can_Living_Donate", "Organ", "Living_Donor_Pct"}.issubset(df.columns):
-        data = df.groupby(["Organ", "Can_Living_Donate"])["Living_Donor_Pct"].mean().reset_index()
-        show_chart(px.bar(data, x="Organ", y="Living_Donor_Pct", color="Can_Living_Donate", barmode="group", title=selected_question), "q15")
+        show_chart(px.bar(data, x="Organ", y="Donors", color="Donor type", barmode="stack", title=selected_question), "q7")
+    elif question_key == "demand_supply" and {"Country", "Organ", "Waiting_List", "Transplants"}.issubset(df.columns):
+        data = df.copy(); data["Demand minus supply"] = data["Waiting_List"] - data["Transplants"]
+        data = data.nlargest(15, "Demand minus supply")
+        show_chart(px.bar(data.sort_values("Demand minus supply"), x="Demand minus supply", y="Country", color="Organ", orientation="h", title=selected_question), "q8")
+    elif question_key == "waiting_factors" and {"Waiting_List", "Population_M", "Donor_Rate_PMP", "Transplants"}.issubset(df.columns):
+        fields = ["Population_M", "Donor_Rate_PMP", "Transplants"]
+        corr = df[["Waiting_List"] + fields].corr()[["Waiting_List"]].drop("Waiting_List").reset_index().rename(columns={"index": "Factor", "Waiting_List": "Correlation"})
+        st.dataframe(corr.sort_values("Correlation", ascending=False), use_container_width=True, hide_index=True)
+        show_chart(px.bar(corr, x="Factor", y="Correlation", title=selected_question), "q9")
+    elif question_key == "survival" and {"Organ", "Survival_Rate_1Y_Pct", "Survival_Rate_5Y_Pct"}.issubset(df.columns):
+        data = df.groupby("Organ")[["Survival_Rate_1Y_Pct", "Survival_Rate_5Y_Pct"]].mean().reset_index().melt("Organ", var_name="Measure", value_name="Percent")
+        show_chart(px.bar(data, x="Organ", y="Percent", color="Measure", barmode="group", text_auto=".2f", title=selected_question), "q10")
+        decline_data = df.assign(Decline=df["Survival_Rate_1Y_Pct"] - df["Survival_Rate_5Y_Pct"])
+        decline = decline_data.groupby("Organ")["Decline"].mean().reset_index(name="Mean decline")
+        st.dataframe(decline.sort_values("Mean decline", ascending=False), use_container_width=True, hide_index=True)
+    elif question_key == "volume_survival" and {"Transplants", "Survival_Rate_5Y_Pct", "Organ"}.issubset(df.columns):
+        data = sampled(df[["Transplants", "Survival_Rate_5Y_Pct", "Organ"]].dropna())
+        show_chart(px.scatter(data, x="Transplants", y="Survival_Rate_5Y_Pct", color="Organ", title=selected_question), "q11")
+    elif question_key == "continent_test" and {"Continent", "Donor_Rate_PMP"}.issubset(df.columns):
+        groups = [g["Donor_Rate_PMP"].dropna().values for _, g in df.groupby("Continent")]
+        statistic, p_value = kruskal(*groups)
+        a, b = st.columns(2); a.metric("Kruskal–Wallis H", f"{statistic:.4f}"); b.metric("p-value", f"{p_value:.6g}")
+        st.info("Reject H0 at α = 0.05." if p_value < .05 else "Fail to reject H0 at α = 0.05.")
+        show_chart(px.box(df, x="Continent", y="Donor_Rate_PMP", points="outliers", title=selected_question), "q12")
+    elif question_key == "eligibility_survival" and {"Can_Living_Donate", "Survival_Rate_5Y_Pct"}.issubset(df.columns):
+        data = df[["Can_Living_Donate", "Survival_Rate_5Y_Pct"]].dropna()
+        show_chart(px.box(data, x="Can_Living_Donate", y="Survival_Rate_5Y_Pct", points="outliers", title=selected_question), "q13")
+        st.caption("The notebook finds six eligibility labels in this dataset, so the two-group Mann–Whitney assumption is not met without recoding.")
+    elif question_key == "regression_question":
+        st.info("The detailed regression comparison is available in the ML Models section, using the notebook predictors and Transplants as the target.")
+    elif question_key == "clustering_question":
+        st.info("The notebook retains this clustering question but does not execute the clustering model in its reduced two-model version. The ML Models section contains the executed predictive models.")
     else:
         st.info("The selected question needs fields that are not available in this dataset.")
 
