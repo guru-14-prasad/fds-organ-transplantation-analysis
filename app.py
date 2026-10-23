@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 from scipy.stats import f_oneway, kruskal
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -229,7 +230,8 @@ elif page == "Analysis Questions":
         coverage = pd.DataFrame({"Dimension": ["Country", "Organ", "Continent", "Year"], "Distinct values": [df[c].nunique() if c in df else 0 for c in ["Country", "Organ", "Continent", "Year"]]})
         st.dataframe(coverage, use_container_width=True, hide_index=True)
         missing = df.isna().sum().sort_values(ascending=False).reset_index(name="Missing values").rename(columns={"index": "Field"})
-        show_chart(px.bar(missing[missing["Missing values"] > 0], x="Field", y="Missing values", title=selected_question), "q1")
+        show_chart(px.bar(missing[missing["Missing values"] > 0], x="Field", y="Missing values", title="Q1 — Missing Values by Field"), "q1_missing")
+        if {"Year", "Continent"}.issubset(df.columns): show_chart(px.histogram(df, x="Year", color="Continent", title="Q1 — Record Coverage by Year and Continent"), "q1_coverage")
     elif question_key == "quality":
         checks = []
         checks.append(("Exact duplicate rows", int(df.duplicated().sum())))
@@ -241,14 +243,28 @@ elif page == "Analysis Questions":
         st.dataframe(pd.DataFrame(checks, columns=["Audit", "Count"]), use_container_width=True, hide_index=True)
         if "Donor_Rate_PMP" in df: show_chart(px.box(df, y="Donor_Rate_PMP", points="outliers", title=selected_question), "q2")
     elif question_key == "continent_rates" and {"Continent", "Donor_Rate_PMP", "Deceased_Rate_PMP"}.issubset(df.columns):
-        data = df.groupby("Continent")[["Donor_Rate_PMP", "Deceased_Rate_PMP"]].mean().reset_index().melt("Continent", var_name="Rate type", value_name="Rate per million")
+        data = df.melt(id_vars=["Continent"], value_vars=["Donor_Rate_PMP", "Deceased_Rate_PMP"], var_name="Rate type", value_name="Rate per million").dropna()
         show_chart(px.box(data, x="Continent", y="Rate per million", color="Rate type", points="outliers", title=selected_question), "q3")
     elif question_key == "organ_contribution" and {"Organ", "Transplants", "Total_Donors"}.issubset(df.columns):
-        data = df.groupby("Organ")[["Transplants", "Total_Donors"]].sum().reset_index().melt("Organ", var_name="Measure", value_name="Total")
-        show_chart(px.bar(data, x="Organ", y="Total", color="Measure", barmode="group", text_auto=".2s", title=selected_question), "q4")
+        data = df.groupby("Organ").agg(Transplants=("Transplants", "sum"), Donors=("Total_Donors", "sum")).reset_index().sort_values("Transplants", ascending=False)
+        data["Cumulative transplant share (%)"] = 100 * data["Transplants"].cumsum() / data["Transplants"].sum()
+        figure = make_subplots(specs=[[{"secondary_y": True}]])
+        figure.add_trace(go.Bar(x=data["Organ"], y=data["Transplants"], name="Transplants"), secondary_y=False)
+        figure.add_trace(go.Scatter(x=data["Organ"], y=data["Cumulative transplant share (%)"], name="Cumulative share %", mode="lines+markers"), secondary_y=True)
+        figure.update_layout(title="Q4 — Organ Transplant Pareto Analysis", xaxis_title="Organ")
+        figure.update_yaxes(title_text="Transplants", secondary_y=False)
+        figure.update_yaxes(title_text="Cumulative share (%)", range=[0, 105], secondary_y=True)
+        show_chart(figure, "q4")
     elif question_key == "country_ranking" and {"Country", "Donor_Rate_PMP"}.issubset(df.columns):
-        data = df.groupby("Country")["Donor_Rate_PMP"].median().nlargest(10).reset_index().sort_values("Donor_Rate_PMP")
-        show_chart(px.bar(data, x="Donor_Rate_PMP", y="Country", orientation="h", text_auto=".2f", title=selected_question), "q5")
+        overall = df.groupby("Country")["Donor_Rate_PMP"].median().nlargest(10).rename("Median rate").reset_index(); overall["Scope"] = "Overall"
+        parts = [overall]
+        for organ_name in ["Kidney", "Liver"]:
+            if "Organ" in df:
+                subset = df[df["Organ"].astype(str).str.casefold() == organ_name.casefold()]
+                if not subset.empty:
+                    organ = subset.groupby("Country")["Donor_Rate_PMP"].median().nlargest(10).rename("Median rate").reset_index(); organ["Scope"] = organ_name; parts.append(organ)
+        data = pd.concat(parts, ignore_index=True).sort_values("Median rate")
+        show_chart(px.bar(data, x="Median rate", y="Country", color="Scope", orientation="h", barmode="group", title=selected_question), "q5")
     elif question_key == "trend" and {"Year", "Total_Donors", "Transplants"}.issubset(df.columns):
         data = df.groupby("Year")[["Total_Donors", "Transplants"]].sum().reset_index().melt("Year", var_name="Measure", value_name="Total")
         show_chart(px.line(data, x="Year", y="Total", color="Measure", markers=True, title=selected_question), "q6")
@@ -256,35 +272,73 @@ elif page == "Analysis Questions":
         data = df.groupby("Organ")[["Living_Donors", "Deceased_Donors"]].sum().reset_index().melt("Organ", var_name="Donor type", value_name="Donors")
         show_chart(px.bar(data, x="Organ", y="Donors", color="Donor type", barmode="stack", title=selected_question), "q7")
     elif question_key == "demand_supply" and {"Country", "Organ", "Waiting_List", "Transplants"}.issubset(df.columns):
-        data = df.copy(); data["Demand minus supply"] = data["Waiting_List"] - data["Transplants"]
-        data = data.nlargest(15, "Demand minus supply")
-        show_chart(px.bar(data.sort_values("Demand minus supply"), x="Demand minus supply", y="Country", color="Organ", orientation="h", title=selected_question), "q8")
+        data = df.copy(); data["Waiting-list / transplant ratio"] = np.where(data["Transplants"] > 0, data["Waiting_List"] / data["Transplants"], np.nan)
+        data = data.dropna(subset=["Waiting-list / transplant ratio"]).nlargest(15, "Waiting-list / transplant ratio")
+        show_chart(px.bar(data.sort_values("Waiting-list / transplant ratio"), x="Waiting-list / transplant ratio", y="Country", color="Organ", orientation="h", text_auto=".1f", title="Q8 — 15 Highest-Pressure Country-Organ Records"), "q8")
+        st.dataframe(data[["Country", "Organ", "Waiting_List", "Transplants", "Waiting-list / transplant ratio"]], use_container_width=True, hide_index=True)
     elif question_key == "waiting_factors" and {"Waiting_List", "Population_M", "Donor_Rate_PMP", "Transplants"}.issubset(df.columns):
-        fields = ["Population_M", "Donor_Rate_PMP", "Transplants"]
-        corr = df[["Waiting_List"] + fields].corr()[["Waiting_List"]].drop("Waiting_List").reset_index().rename(columns={"index": "Factor", "Waiting_List": "Correlation"})
-        st.dataframe(corr.sort_values("Correlation", ascending=False), use_container_width=True, hide_index=True)
-        show_chart(px.bar(corr, x="Factor", y="Correlation", title=selected_question), "q9")
+        fields = ["Waiting_List", "Population_M", "Donor_Rate_PMP", "Transplants"]
+        corr = df[fields].corr()
+        show_chart(px.imshow(corr, text_auto=".2f", aspect="auto", color_continuous_scale="RdBu_r", zmin=-1, zmax=1, title="Q9 — Pearson Correlation Matrix"), "q9")
     elif question_key == "survival" and {"Organ", "Survival_Rate_1Y_Pct", "Survival_Rate_5Y_Pct"}.issubset(df.columns):
         data = df.groupby("Organ")[["Survival_Rate_1Y_Pct", "Survival_Rate_5Y_Pct"]].mean().reset_index().melt("Organ", var_name="Measure", value_name="Percent")
-        show_chart(px.bar(data, x="Organ", y="Percent", color="Measure", barmode="group", text_auto=".2f", title=selected_question), "q10")
+        show_chart(px.bar(data, x="Organ", y="Percent", color="Measure", barmode="group", text_auto=".2f", title="Q10 — One-Year vs Five-Year Survival by Organ"), "q10")
         decline_data = df.assign(Decline=df["Survival_Rate_1Y_Pct"] - df["Survival_Rate_5Y_Pct"])
         decline = decline_data.groupby("Organ")["Decline"].mean().reset_index(name="Mean decline")
-        st.dataframe(decline.sort_values("Mean decline", ascending=False), use_container_width=True, hide_index=True)
+        show_chart(px.bar(decline.sort_values("Mean decline"), x="Mean decline", y="Organ", orientation="h", text_auto=".2f", title="Q10 — Survival Decline (Percentage Points) by Organ"), "q10_decline")
     elif question_key == "volume_survival" and {"Transplants", "Survival_Rate_5Y_Pct", "Organ"}.issubset(df.columns):
-        data = sampled(df[["Transplants", "Survival_Rate_5Y_Pct", "Organ"]].dropna())
-        show_chart(px.scatter(data, x="Transplants", y="Survival_Rate_5Y_Pct", color="Organ", title=selected_question), "q11")
+        data = sampled(df[["Transplants", "Survival_Rate_1Y_Pct", "Survival_Rate_5Y_Pct", "Organ"]].dropna())
+        data = data[data["Transplants"] > 0]
+        for survival_field in ["Survival_Rate_1Y_Pct", "Survival_Rate_5Y_Pct"]:
+            figure = px.scatter(data, x="Transplants", y=survival_field, color="Organ", log_x=True, title=f"Q11 — Transplant Volume vs {survival_field} (log x-axis)")
+            show_chart(figure, f"q11_{survival_field}")
+            st.caption(f"Pearson r = {data['Transplants'].corr(data[survival_field]):.3f} | Spearman rho = {data['Transplants'].corr(data[survival_field], method='spearman'):.3f}")
     elif question_key == "continent_test" and {"Continent", "Donor_Rate_PMP"}.issubset(df.columns):
-        groups = [g["Donor_Rate_PMP"].dropna().values for _, g in df.groupby("Continent")]
-        statistic, p_value = kruskal(*groups)
+        groups = {name: group["Donor_Rate_PMP"].dropna().values for name, group in df.groupby("Continent") if group["Donor_Rate_PMP"].notna().sum() >= 2}
+        statistic, p_value = kruskal(*groups.values())
         a, b = st.columns(2); a.metric("Kruskal–Wallis H", f"{statistic:.4f}"); b.metric("p-value", f"{p_value:.6g}")
         st.info("Reject H0 at α = 0.05." if p_value < .05 else "Fail to reject H0 at α = 0.05.")
+        pairwise = []
+        names = list(groups)
+        for i in range(len(names)):
+            for j in range(i + 1, len(names)):
+                _, raw_p = __import__("scipy").stats.mannwhitneyu(groups[names[i]], groups[names[j]], alternative="two-sided")
+                pairwise.append((names[i], names[j], raw_p))
+        pairwise.sort(key=lambda row: row[2]); m = len(pairwise)
+        holm = []; running = 0
+        for rank, (name_a, name_b, raw_p) in enumerate(pairwise):
+            adjusted = min(1, (m - rank) * raw_p); running = max(running, adjusted); holm.append((name_a, name_b, raw_p, running))
+        st.dataframe(pd.DataFrame(holm, columns=["Continent A", "Continent B", "Raw p", "Holm-adjusted p"]), use_container_width=True, hide_index=True)
         show_chart(px.box(df, x="Continent", y="Donor_Rate_PMP", points="outliers", title=selected_question), "q12")
     elif question_key == "eligibility_survival" and {"Can_Living_Donate", "Survival_Rate_5Y_Pct"}.issubset(df.columns):
         data = df[["Can_Living_Donate", "Survival_Rate_5Y_Pct"]].dropna()
         show_chart(px.box(data, x="Can_Living_Donate", y="Survival_Rate_5Y_Pct", points="outliers", title=selected_question), "q13")
         st.caption("The notebook finds six eligibility labels in this dataset, so the two-group Mann–Whitney assumption is not met without recoding.")
     elif question_key == "regression_question":
-        st.info("The detailed regression comparison is available in the ML Models section, using the notebook predictors and Transplants as the target.")
+        features = ["Population_M", "Total_Donors", "Deceased_Rate_PMP", "Waiting_List"]
+        if set(features + ["Transplants"]).issubset(df.columns):
+            from sklearn.linear_model import LinearRegression
+            train = df[features + ["Transplants"]].replace([np.inf, -np.inf], np.nan).dropna(subset=["Transplants"])
+            X, y = train[features], pd.to_numeric(train["Transplants"], errors="coerce")
+            valid = y.notna(); X, y = X.loc[valid], y.loc[valid]
+            x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=.2, random_state=RANDOM_STATE)
+            models = {"Linear Regression": LinearRegression(), "Random Forest Regressor": RandomForestRegressor(n_estimators=250, min_samples_leaf=2, random_state=RANDOM_STATE, n_jobs=-1)}
+            fitted = {}; results = []
+            for name, estimator in models.items():
+                pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")), ("model", estimator)])
+                pipeline.fit(x_train, y_train); prediction = pipeline.predict(x_test); fitted[name] = pipeline
+                results.append({"Model": name, "R2": r2_score(y_test, prediction), "MAE": mean_absolute_error(y_test, prediction), "RMSE": np.sqrt(mean_squared_error(y_test, prediction))})
+            result_table = pd.DataFrame(results).sort_values("RMSE")
+            st.dataframe(result_table.round(4), use_container_width=True, hide_index=True)
+            show_chart(px.bar(result_table.melt(id_vars="Model", value_vars=["R2", "MAE", "RMSE"], var_name="Metric", value_name="Score"), x="Model", y="Score", color="Metric", barmode="group", title="Q14 — Regression Model Comparison"), "q14_models")
+            best = result_table.iloc[0]["Model"]; prediction = fitted[best].predict(x_test)
+            show_chart(px.scatter(x=y_test, y=prediction, labels={"x": "Actual transplants", "y": "Predicted transplants"}, title=f"Q14 — Actual vs Predicted ({best})"), "q14_actual_predicted")
+            residuals = y_test - prediction
+            figure = px.scatter(x=prediction, y=residuals, labels={"x": "Predicted", "y": "Residual"}, title="Q14 — Residual Diagnostic")
+            figure.add_hline(y=0, line_dash="dash")
+            show_chart(figure, "q14_residuals")
+        else:
+            st.info("The notebook regression predictors are not all available in this dataset.")
     elif question_key == "clustering_question":
         st.info("The notebook retains this clustering question but does not execute the clustering model in its reduced two-model version. The ML Models section contains the executed predictive models.")
     else:
