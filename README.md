@@ -126,3 +126,8 @@ Use the Streamlit dashboard for interactive exploration, the notebook for the do
 ## Reproducibility note
 
 Dashboard and model outputs can vary with selected filters, available non-missing fields, and train/test sampling.
+
+
+## Maintenance
+
+Keep the app dataset, notebook input paths, and Tableau source aligned when refreshing project data.
