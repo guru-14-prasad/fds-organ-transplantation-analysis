@@ -121,3 +121,8 @@ No license file is currently included. Add a license before distributing the pro
 ## Quick reference
 
 Use the Streamlit dashboard for interactive exploration, the notebook for the documented analytical workflow, and the Tableau workbook for the packaged visual dashboard.
+
+
+## Reproducibility note
+
+Dashboard and model outputs can vary with selected filters, available non-missing fields, and train/test sampling.
