@@ -116,3 +116,8 @@ The project covers dataset dimensions, regional donor-rate comparisons, organ ac
 This observational analysis is not clinical or policy guidance. Verify definitions, provenance, coverage, and missing-data assumptions before reuse. Correlation and model performance do not establish causation, and outputs can change with filters, preprocessing, and train/test samples.
 
 No license file is currently included. Add a license before distributing the project for reuse.
+
+
+## Quick reference
+
+Use the Streamlit dashboard for interactive exploration, the notebook for the documented analytical workflow, and the Tableau workbook for the packaged visual dashboard.
