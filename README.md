@@ -29,8 +29,9 @@ Run app.py to open OrganScope | Donation Analytics. The sidebar provides:
 - Country & Organ Analysis — country, organ, and continent filters; donor-rate and transplant summaries; donor-type comparisons; filtered CSV download.
 - Trends & Survival — annual transplant trends grouped overall, by organ, or by continent, plus survival views when fields are available.
 - Statistical Tests — Kruskal–Wallis or one-way ANOVA for donor-rate differences between continents, and Mann–Whitney U for eligibility versus five-year survival when required columns exist.
-- Regression Models — Linear Regression, Ridge, Lasso, Decision Tree, Random Forest, and Gradient Boosting comparisons with R², RMSE, MAE, and residual diagnostics.
-- Clustering — K-Means or Agglomerative Clustering, cluster summaries, silhouette score when calculable, PCA projection, and downloadable assignments.
+- Regression Models — Linear Regression and Random Forest Regressor comparison with execution status tracking, prediction status leaderboard, residual diagnostics, and interactive inference.
+- Classification Models — Logistic Regression and Random Forest Classifier comparison predicting living-donor eligibility status (`Can_Living_Donate`) with Macro-F1, confusion matrix, and interactive inference.
+- Clustering — K-Means clustering, cluster summaries, silhouette score, PCA projection, and downloadable assignments.
 - About Project — project purpose and interpretation notes.
 
 The app trims text fields and converts numeric fields on load. Plot and model row caps keep interaction responsive; metrics depend on selected fields, available data, and train/test sampling.
