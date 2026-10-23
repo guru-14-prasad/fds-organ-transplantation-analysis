@@ -94,3 +94,13 @@ def sampled(data, limit=6000):
 def show_chart(figure, key):
     figure.update_layout(template="plotly_dark", margin=dict(l=20, r=20, t=60, b=25))
     st.plotly_chart(figure, use_container_width=True, key=key)
+
+
+
+st.markdown("""
+<style>
+header[data-testid="stHeader"] { display: none !important; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
+</style>
+""", unsafe_allow_html=True)
